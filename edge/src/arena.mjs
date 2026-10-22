@@ -203,6 +203,16 @@ export class ArenaRoom {
       this.send(room.guest, message);
     } else if (message.type === "rematch-request") {
       this.notify(room, { type: "rematch-request", from: socket === room.host ? "p1" : "p2" }, socket);
+    } else if (message.type === "pause-request") {
+      this.notify(room, { type: "pause-request", from: socket === room.host ? "p1" : "p2" }, socket);
+    } else if (message.type === "pause-response") {
+      this.notify(room, {
+        type: "pause-response",
+        accepted: Boolean(message.accepted),
+        from: socket === room.host ? "p1" : "p2"
+      }, socket);
+    } else if (message.type === "pause-resume") {
+      this.notify(room, { type: "pause-resume" }, socket);
     }
   }
 
@@ -303,6 +313,16 @@ export class ArenaRoom {
           this.queue(other, message);
         } else if (message.type === "rematch-request") {
           this.queue(other, { type: "rematch-request", from: sender === room.p1 ? "p1" : "p2" });
+        } else if (message.type === "pause-request") {
+          this.queue(other, { type: "pause-request", from: sender === room.p1 ? "p1" : "p2" });
+        } else if (message.type === "pause-response") {
+          this.queue(other, {
+            type: "pause-response",
+            accepted: Boolean(message.accepted),
+            from: sender === room.p1 ? "p1" : "p2"
+          });
+        } else if (message.type === "pause-resume") {
+          this.queue(other, { type: "pause-resume" });
         }
         await this.saveHttpRooms();
         return json({ ok: true });

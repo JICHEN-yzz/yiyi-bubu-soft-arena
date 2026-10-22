@@ -15,5 +15,7 @@ render-openapi.json
 .dns-check.mjs
 .cloudflare-subdomain.mjs
 deno-deploy-*.ts
+reference-runner/
+.fetch-github-runner.mjs
 .env
 .env.*

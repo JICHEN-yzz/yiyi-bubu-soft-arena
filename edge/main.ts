@@ -141,6 +141,16 @@ async function handleSocketMessage(socket: WebSocket & { roomCode?: string | nul
     send(room.guest, message);
   } else if (message.type === "rematch-request") {
     notify(room, { type: "rematch-request", from: socket === room.host ? "p1" : "p2" }, socket);
+  } else if (message.type === "pause-request") {
+    notify(room, { type: "pause-request", from: socket === room.host ? "p1" : "p2" }, socket);
+  } else if (message.type === "pause-response") {
+    notify(room, {
+      type: "pause-response",
+      accepted: Boolean(message.accepted),
+      from: socket === room.host ? "p1" : "p2"
+    }, socket);
+  } else if (message.type === "pause-resume") {
+    notify(room, { type: "pause-resume" }, socket);
   }
 }
 
@@ -261,6 +271,16 @@ async function handleHttpRoom(request: Request, url: URL) {
         queue(other, message);
       } else if (message.type === "rematch-request") {
         queue(other, { type: "rematch-request", from: sender === room.p1 ? "p1" : "p2" });
+      } else if (message.type === "pause-request") {
+        queue(other, { type: "pause-request", from: sender === room.p1 ? "p1" : "p2" });
+      } else if (message.type === "pause-response") {
+        queue(other, {
+          type: "pause-response",
+          accepted: Boolean(message.accepted),
+          from: sender === room.p1 ? "p1" : "p2"
+        });
+      } else if (message.type === "pause-resume") {
+        queue(other, { type: "pause-resume" });
       }
       await saveHttpRoom(room);
       return json({ ok: true });
@@ -282,19 +302,34 @@ const MIME: Record<string, string> = {
   ".wasm": "application/wasm",
   ".png": "image/png",
   ".jpg": "image/jpeg",
-  ".svg": "image/svg+xml"
+  ".svg": "image/svg+xml",
+  ".mp3": "audio/mpeg",
+  ".wav": "audio/wav"
 };
 
-async function serveAsset(url: URL): Promise<Response> {
+async function serveAsset(request: Request, url: URL): Promise<Response> {
   let path = decodeURIComponent(url.pathname).replace(/^\/+/, "") || "index.html";
   if (path.includes("..")) return new Response("Bad request", { status: 400 });
   try {
-    const file = await Deno.readFile(new URL(`./public/${path}`, import.meta.url));
+    const acceptsGzip = request.headers.get("accept-encoding")?.includes("gzip");
+    let file: Uint8Array | null = null;
+    let compressed = false;
+    if (acceptsGzip) {
+      try {
+        file = await Deno.readFile(new URL(`./public/${path}.gz`, import.meta.url));
+        compressed = true;
+      } catch {
+        file = null;
+      }
+    }
+    if (!file) file = await Deno.readFile(new URL(`./public/${path}`, import.meta.url));
     const extension = path.match(/\.[^.]+$/)?.[0]?.toLowerCase() || "";
-    return new Response(file, {
+    return new Response(file.buffer as ArrayBuffer, {
       headers: {
         "Content-Type": MIME[extension] || "application/octet-stream",
-        "Cache-Control": extension === ".html" ? "no-cache" : "public, max-age=3600"
+        "Cache-Control": extension === ".html" ? "no-cache" : "public, max-age=86400, stale-while-revalidate=604800",
+        Vary: "Accept-Encoding",
+        ...(compressed ? { "Content-Encoding": "gzip" } : {})
       }
     });
   } catch {
@@ -327,5 +362,5 @@ Deno.serve({ port: Number(Deno.env.get("PORT") || 8000) }, async (request) => {
     socket.onerror = () => leaveSocket(tagged);
     return response;
   }
-  return await serveAsset(url);
+  return await serveAsset(request, url);
 });

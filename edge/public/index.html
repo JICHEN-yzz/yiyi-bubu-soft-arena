@@ -136,7 +136,7 @@
         </div>
 
         <button class="pause-button" id="pause-button" type="button" aria-label="暂停游戏">
-          <span></span><span></span>
+          <span></span><span></span><b>暂停</b>
         </button>
 
         <div class="mobile-controls" id="mobile-controls" aria-label="手机触控操作">
@@ -169,6 +169,7 @@
 
         <section class="modal-screen start-screen is-visible" id="start-screen">
           <div class="start-card">
+            <button class="start-home-button" id="start-home-button" type="button"><span>←</span> 返回主页</button>
             <div class="start-mascot-row" aria-hidden="true">
               <span class="mini-mascot panda-mascot"><i></i><i></i></span>
               <span class="versus-badge">VS</span>
@@ -264,9 +265,20 @@
           <div class="small-modal">
             <span class="eyebrow">SUGAR BREAK</span>
             <h2>暂停</h2>
-            <p>调整呼吸，回来继续赢。</p>
+            <p id="pause-copy">调整呼吸，回来继续赢。</p>
+            <div class="pause-countdown" id="pause-countdown"><b>30</b><span>秒后自动继续</span></div>
             <button class="primary-button" id="resume-button" type="button"><span>继续对战</span><i>→</i></button>
             <button class="text-button" id="quit-button" type="button">回到开场</button>
+          </div>
+        </section>
+
+        <section class="modal-screen pause-request-screen" id="pause-request-screen">
+          <div class="small-modal pause-request-modal">
+            <span class="eyebrow">PAUSE REQUEST</span>
+            <h2>对方想暂停</h2>
+            <p><b id="pause-request-name">对手</b> 请求暂停对战，同意后最多暂停 30 秒。</p>
+            <button class="primary-button" id="pause-accept-button" type="button"><span>同意暂停</span><i>✓</i></button>
+            <button class="text-button" id="pause-reject-button" type="button">继续对战</button>
           </div>
         </section>
 

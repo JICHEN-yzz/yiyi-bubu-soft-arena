@@ -22,7 +22,9 @@ const types = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".svg": "image/svg+xml",
-  ".woff2": "font/woff2"
+  ".woff2": "font/woff2",
+  ".mp3": "audio/mpeg",
+  ".wav": "audio/wav"
 };
 
 function localAddresses() {
@@ -210,6 +212,21 @@ const server = http.createServer(async (request, response) => {
           queueHttpEvent(room.p2, { ...message, room: room.code });
         } else if (message.type === "rematch-request") {
           queueHttpEvent(sender === room.p1 ? room.p2 : room.p1, { type: "rematch-request", room: room.code });
+        } else if (message.type === "pause-request") {
+          queueHttpEvent(sender === room.p1 ? room.p2 : room.p1, {
+            type: "pause-request",
+            from: sender === room.p1 ? "p1" : "p2",
+            room: room.code
+          });
+        } else if (message.type === "pause-response") {
+          queueHttpEvent(sender === room.p1 ? room.p2 : room.p1, {
+            type: "pause-response",
+            accepted: Boolean(message.accepted),
+            from: sender === room.p1 ? "p1" : "p2",
+            room: room.code
+          });
+        } else if (message.type === "pause-resume") {
+          queueHttpEvent(sender === room.p1 ? room.p2 : room.p1, { type: "pause-resume", room: room.code });
         }
         jsonResponse(response, 200, { ok: true });
         return;
@@ -436,6 +453,22 @@ wss.on("connection", (socket, request) => {
     }
     if (message.type === "rematch-request") {
       notifyRoom(room, { type: "rematch-request", from: socket === room.host ? "p1" : "p2" }, socket);
+      return;
+    }
+    if (message.type === "pause-request") {
+      notifyRoom(room, { type: "pause-request", from: socket === room.host ? "p1" : "p2" }, socket);
+      return;
+    }
+    if (message.type === "pause-response") {
+      notifyRoom(room, {
+        type: "pause-response",
+        accepted: Boolean(message.accepted),
+        from: socket === room.host ? "p1" : "p2"
+      }, socket);
+      return;
+    }
+    if (message.type === "pause-resume") {
+      notifyRoom(room, { type: "pause-resume" }, socket);
     }
   });
 

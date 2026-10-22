@@ -202,6 +202,18 @@ export class OnlineSession {
     this.sendRoomMessage({ type: "rematch-request", room: this.room });
   }
 
+  pauseRequest() {
+    this.sendRoomMessage({ type: "pause-request", room: this.room });
+  }
+
+  pauseResponse(accepted) {
+    this.sendRoomMessage({ type: "pause-response", accepted: Boolean(accepted), room: this.room });
+  }
+
+  pauseResume() {
+    this.sendRoomMessage({ type: "pause-resume", room: this.room });
+  }
+
   close() {
     this.polling = false;
     this.socket?.close();

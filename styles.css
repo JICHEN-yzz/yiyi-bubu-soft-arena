@@ -2959,3 +2959,72 @@ kbd {
     padding: 19px 18px 17px;
   }
 }
+
+.start-home-button {
+  position: absolute;
+  top: 13px;
+  left: 15px;
+  height: 27px;
+  padding: 0 9px;
+  color: rgba(242, 222, 237, 0.64);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.start-home-button:hover {
+  color: #fff;
+  border-color: rgba(255, 107, 153, 0.48);
+}
+
+.start-home-button span {
+  margin-right: 3px;
+  color: #ff80a6;
+}
+
+.pause-button {
+  width: auto;
+  min-width: 64px;
+  padding: 0 10px;
+}
+
+.pause-button b {
+  margin-left: 2px;
+  color: rgba(255, 246, 252, 0.78);
+  font-size: 8px;
+  font-weight: 850;
+}
+
+.pause-countdown {
+  display: none;
+  align-items: baseline;
+  justify-content: center;
+  gap: 5px;
+  margin: 12px 0 15px;
+  color: rgba(255, 164, 194, 0.76);
+  font-size: 9px;
+}
+
+.pause-countdown.is-visible {
+  display: flex;
+}
+
+.pause-countdown b {
+  color: #fff;
+  font: 950 28px/1 "Arial Black", sans-serif;
+}
+
+.pause-request-screen {
+  z-index: 38;
+}
+
+.pause-request-modal p b {
+  color: #ff93b4;
+}
+
+.pause-request-modal .primary-button {
+  margin-top: 4px;
+}

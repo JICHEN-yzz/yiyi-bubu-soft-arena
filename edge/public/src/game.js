@@ -548,8 +548,13 @@ class EffectSystem {
 class ArenaScene {
   constructor(canvas) {
     this.canvas = canvas;
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: Math.min(window.innerWidth, window.innerHeight) >= 600,
+      alpha: true,
+      powerPreference: "high-performance"
+    });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, window.innerWidth < 820 ? 1.4 : 2));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -585,7 +590,8 @@ class ArenaScene {
     const key = new THREE.DirectionalLight(0xffe7e6, 4.4);
     key.position.set(-4.5, 8.5, 7);
     key.castShadow = true;
-    key.shadow.mapSize.set(2048, 2048);
+    const shadowSize = window.innerWidth < 820 ? 1024 : 2048;
+    key.shadow.mapSize.set(shadowSize, shadowSize);
     key.shadow.camera.left = -8;
     key.shadow.camera.right = 8;
     key.shadow.camera.top = 8;
@@ -1025,12 +1031,19 @@ class ArenaScene {
     }
   }
 
-  async loadCharacters() {
+  async loadCharacters(onProgress) {
     const loader = new GLTFLoader();
     const dracoLoader = new DRACOLoader();
     dracoLoader.setDecoderPath("./vendor/three/examples/jsm/libs/draco/gltf/");
     loader.setDRACOLoader(dracoLoader);
-    const gltf = await loader.loadAsync("./assets/characters_v2.glb");
+    const gltf = await new Promise((resolve, reject) => {
+      loader.load(
+        "./assets/characters_v2.glb",
+        resolve,
+        (event) => onProgress?.(event.loaded, event.total),
+        reject
+      );
+    });
     const characters = {};
     const roots = [
       ["yiyi", "ROOT_一二"],
@@ -1059,6 +1072,9 @@ class ArenaScene {
         for (const material of materials) {
           if (material.emissive) material.userData.baseEmissive = material.emissive.clone();
           if (material.color) material.userData.baseColor = material.color.clone();
+          if ("roughness" in material) material.roughness = Math.max(0.34, Math.min(0.78, material.roughness));
+          if ("metalness" in material) material.metalness = Math.min(0.18, material.metalness);
+          if ("envMapIntensity" in material) material.envMapIntensity = 1.18;
         }
       });
 
@@ -1114,6 +1130,37 @@ class ArenaScene {
         pivots[key] = { object: pivot, base: pivot.quaternion.clone() };
       }
 
+      const outlineMaterial = new THREE.MeshBasicMaterial({
+        color: id === "yiyi" ? "#30232e" : "#4a2e26",
+        side: THREE.BackSide,
+        transparent: true,
+        opacity: 0.72,
+        depthWrite: false
+      });
+      for (const mesh of meshes) {
+        if (!/(_01_|_02_|_03_|_10_|_11_|_12_|_13_)/.test(mesh.name)) continue;
+        const outline = new THREE.Mesh(mesh.geometry, outlineMaterial);
+        outline.name = `${mesh.name}_轮廓`;
+        outline.scale.setScalar(1.027);
+        outline.renderOrder = 2;
+        outline.castShadow = false;
+        outline.receiveShadow = false;
+        outline.raycast = () => {};
+        mesh.add(outline);
+      }
+      const eyes = meshes
+        .filter((mesh) => /_05_豆豆眼_/.test(mesh.name))
+        .map((mesh) => {
+          mesh.userData.baseScaleY = mesh.scale.y;
+          return mesh;
+        });
+      const eyeGlints = meshes
+        .filter((mesh) => /_06_眼神高光_/.test(mesh.name))
+        .map((mesh) => {
+          mesh.userData.baseScaleY = mesh.scale.y;
+          return mesh;
+        });
+
       const shadowTexture = this.effects.textures.afterimage;
       const shadow = new THREE.Sprite(
         new THREE.SpriteMaterial({
@@ -1128,7 +1175,16 @@ class ArenaScene {
       shadow.position.set(0, 0.03, 0.1);
       this.scene.add(shadow);
 
-      characters[id] = { root, group, pivots, shadow, visualYaw: 0 };
+      characters[id] = {
+        root,
+        group,
+        pivots,
+        shadow,
+        eyes,
+        eyeGlints,
+        visualYaw: 0,
+        depthScale: id === "bubu" ? 1.24 : 1.18
+      };
     }
 
     return characters;
@@ -1183,6 +1239,7 @@ class ArenaScene {
   resize() {
     const width = this.canvas.clientWidth || window.innerWidth;
     const height = this.canvas.clientHeight || window.innerHeight;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, Math.min(width, height) < 820 ? 1.4 : 2));
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
@@ -1394,6 +1451,7 @@ class Fighter {
         this.stepTimer -= dt;
         if (this.stepTimer <= 0) {
           this.stepTimer = 0.14 + Math.random() * 0.06;
+          this.game.sound.step();
           this.game.arenaScene.effects.burst(
             this.x - direction * 0.16,
             0.015,
@@ -1720,7 +1778,7 @@ class Fighter {
     group.scale.set(
       damp(group.scale.x, squashX, 18, dt),
       damp(group.scale.y, squashY, 18, dt),
-      damp(group.scale.z, 1, 18, dt)
+      damp(group.scale.z, model.depthScale || 1, 18, dt)
     );
 
     model.root.rotation.order = "YXZ";
@@ -1751,6 +1809,20 @@ class Fighter {
     applyPivot("legR", legR, 26);
     applyPivot("footR", footR, 22);
     applyPivot("tail", tail, 15);
+
+    const blinkCycle = (time * 0.73 + this.poseTime * 0.21 + this.index * 0.37) % 5.2;
+    const blinkWave = blinkCycle > 4.98 ? Math.sin(((blinkCycle - 4.98) / 0.22) * Math.PI) : 0;
+    let eyeOpen = 1 - Math.max(0, blinkWave) * 0.93;
+    if (this.downed) eyeOpen = 0.08;
+    else if (this.hitstun > 0) eyeOpen = Math.min(eyeOpen, 0.48);
+    else if (this.blocking) eyeOpen = Math.min(eyeOpen, 0.7);
+    for (const eye of model.eyes || []) {
+      eye.scale.y = eye.userData.baseScaleY * eyeOpen;
+    }
+    for (const glint of model.eyeGlints || []) {
+      glint.scale.y = glint.userData.baseScaleY * Math.max(0.12, eyeOpen);
+      glint.visible = eyeOpen > 0.24;
+    }
 
     model.shadow.position.x = this.x;
     model.shadow.position.y = 0.025 + this.y * 0.03;
@@ -1899,6 +1971,10 @@ export class SoftCandyArena {
     this.online = new OnlineSession((message) => this.handleOnlineMessage(message));
     this.onlineRole = null;
     this.onlinePeerReady = false;
+    this.onlinePausePending = false;
+    this.onlinePauseActive = false;
+    this.onlinePauseRemaining = 0;
+    this.onlinePauseRequester = "";
     this.remoteIntent = { held: {}, pressed: {} };
     this.netInputBuffer = { held: {}, pressed: {} };
     this.netInputTimer = 0;
@@ -1946,6 +2022,7 @@ export class SoftCandyArena {
       characterGuideBadge: document.querySelector("#character-guide-badge"),
       characterGuideStats: document.querySelector("#character-guide-stats"),
       characterGuideSkills: document.querySelector("#character-guide-skills"),
+      startHomeButton: document.querySelector("#start-home-button"),
       onlinePanel: document.querySelector("#online-panel"),
       onlineName: document.querySelector("#online-name"),
       onlineMessage: document.querySelector("#online-message"),
@@ -1963,6 +2040,13 @@ export class SoftCandyArena {
       rotateFullscreen: document.querySelector("#rotate-fullscreen-button"),
       rotateDismiss: document.querySelector("#rotate-dismiss-button"),
       pause: document.querySelector("#pause-screen"),
+      pauseCopy: document.querySelector("#pause-copy"),
+      pauseCountdown: document.querySelector("#pause-countdown"),
+      pauseCountdownValue: document.querySelector("#pause-countdown b"),
+      pauseRequest: document.querySelector("#pause-request-screen"),
+      pauseRequestName: document.querySelector("#pause-request-name"),
+      pauseAccept: document.querySelector("#pause-accept-button"),
+      pauseReject: document.querySelector("#pause-reject-button"),
       result: document.querySelector("#result-screen"),
       resultTitle: document.querySelector("#result-title"),
       resultCopy: document.querySelector("#result-copy"),
@@ -2176,6 +2260,7 @@ export class SoftCandyArena {
   }
 
   bindUI() {
+    window.addEventListener("pointerdown", () => this.sound.unlock(), { once: true, capture: true });
     window.addEventListener("resize", () => {
       this.resize();
       this.detectMobileDevice();
@@ -2190,7 +2275,11 @@ export class SoftCandyArena {
           this.closeCharacterGuide();
           return;
         }
-        if (this.phase === "fight" || this.phase === "roundEnd" || this.phase === "intro") this.togglePause();
+        if (this.ui.pauseRequest.classList.contains("is-visible")) {
+          this.rejectOnlinePauseRequest();
+          return;
+        }
+        if (this.phase === "fight" || this.phase === "roundEnd" || this.phase === "intro") this.requestPauseToggle();
         return;
       }
       if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.code)) event.preventDefault();
@@ -2200,10 +2289,10 @@ export class SoftCandyArena {
     });
     window.addEventListener("keyup", (event) => this.keys.delete(event.code));
     window.addEventListener("blur", () => {
-      if (this.phase === "fight" && !this.pauseLocked) this.togglePause();
+      if (this.phase === "fight" && !this.pauseLocked) this.requestPauseToggle();
     });
     document.addEventListener("visibilitychange", () => {
-      if (document.hidden && this.phase === "fight" && !this.pauseLocked) this.togglePause();
+      if (document.hidden && this.phase === "fight" && !this.pauseLocked) this.requestPauseToggle();
     });
 
     for (const button of this.ui.modeButtons) {
@@ -2248,6 +2337,7 @@ export class SoftCandyArena {
     this.ui.createRoomButton.addEventListener("click", () => this.createOnlineRoom());
     this.ui.joinRoomButton.addEventListener("click", () => this.joinOnlineRoom());
     this.ui.copyInviteButton.addEventListener("click", () => this.copyInviteLink());
+    this.ui.startHomeButton.addEventListener("click", () => this.returnToHome());
     this.ui.mobileFullscreen.addEventListener("click", () => this.enterMobileFullscreen());
     this.ui.rotateFullscreen.addEventListener("click", () => this.enterMobileFullscreen());
     this.ui.rotateDismiss.addEventListener("click", () => {
@@ -2256,8 +2346,10 @@ export class SoftCandyArena {
     });
     this.bindTouchControls();
     this.ui.resultHomeButton = document.querySelector("#result-home-button");
-    document.querySelector("#pause-button").addEventListener("click", () => this.togglePause());
-    document.querySelector("#resume-button").addEventListener("click", () => this.togglePause(false));
+    document.querySelector("#pause-button").addEventListener("click", () => this.requestPauseToggle());
+    document.querySelector("#resume-button").addEventListener("click", () => this.resumePausedGame());
+    this.ui.pauseAccept.addEventListener("click", () => this.acceptOnlinePauseRequest());
+    this.ui.pauseReject.addEventListener("click", () => this.rejectOnlinePauseRequest());
     document.querySelector("#quit-button").addEventListener("click", () => this.goHome());
     document.querySelector("#rematch-button").addEventListener("click", () => this.restartMatch());
     document.querySelector("#result-home-button").addEventListener("click", () => this.goHome());
@@ -2334,7 +2426,14 @@ export class SoftCandyArena {
   async load() {
     try {
       const characters = await Promise.race([
-        this.arenaScene.loadCharacters(),
+        this.arenaScene.loadCharacters((loaded, total) => {
+          if (!total) {
+            this.ui.loadingNote.textContent = "正在下载角色模型…";
+            return;
+          }
+          const percent = Math.min(100, Math.round((loaded / total) * 100));
+          this.ui.loadingNote.textContent = `正在下载角色模型 ${percent}%`;
+        }),
         new Promise((_, reject) => {
           window.setTimeout(() => reject(new Error("角色资源加载超时")), 25000);
         })
@@ -2550,8 +2649,34 @@ export class SoftCandyArena {
         if (this.onlineRole === "p1") this.online.start();
         else this.ui.resultCopy.textContent = "重新开战请求已发送，等她准备。";
         break;
+      case "pause-request": {
+        if (this.onlinePauseActive) {
+          this.online.pauseResponse(true);
+          break;
+        }
+        const requesterIndex = message.from === "p1" ? 0 : 1;
+        this.ui.pauseRequestName.textContent = this.fighters[requesterIndex]?.config.name || "对方";
+        this.ui.pauseRequest.classList.add("is-visible");
+        this.sound.ui();
+        break;
+      }
+      case "pause-response":
+        this.onlinePausePending = false;
+        if (message.accepted) {
+          this.startOnlinePause();
+        } else {
+          this.showAnnounce("PAUSE", "对方选择继续对战");
+          this.ui.onlineMessage.textContent = "对方暂时不想暂停。";
+        }
+        break;
+      case "pause-resume":
+        this.endOnlinePause(false);
+        break;
       case "peer-left":
         this.onlinePeerReady = false;
+        this.onlinePausePending = false;
+        if (this.onlinePauseActive) this.endOnlinePause(false);
+        this.ui.pauseRequest.classList.remove("is-visible");
         this.showAnnounce("CONNECTION", message.reason || "对方离开了房间");
         this.ui.onlineMessage.textContent = message.reason || "对方已离开房间";
         break;
@@ -2571,12 +2696,17 @@ export class SoftCandyArena {
     if (!this.loaded) return;
     this.onlineRole = role;
     this.mode = role === "p2" ? "online-guest" : "online-host";
+    this.onlinePausePending = false;
+    this.onlinePauseActive = false;
+    this.ui.pauseRequest.classList.remove("is-visible");
     const p1Character = this.onlineCharacters.p1 || this.selectedCharacter;
     const p2Character = this.onlineCharacters.p2 || this.otherCharacter(p1Character);
     this.prepareFighters([p1Character, p2Character]);
     this.setGuestKeyboardLayout(role === "p2");
     this.sound.unlock();
     this.sound.round();
+    this.sound.startMusic();
+    this.sound.preloadVoices();
     this.phase = "intro";
     this.round = 1;
     this.roundWins = [0, 0];
@@ -2704,6 +2834,7 @@ export class SoftCandyArena {
     this.arenaScene.addShake(clamp(0.04 + damage * 0.009, 0.06, 0.25));
     if (damage >= 10) this.showSpeedLines(160);
     this.sound[damage >= 13 || kind === "super" ? "heavy" : "light"]();
+    this.sound.hurt(target, damage);
   }
 
   resize() {
@@ -2719,6 +2850,8 @@ export class SoftCandyArena {
     this.setGuestKeyboardLayout(false);
     this.sound.unlock();
     this.sound.ui();
+    this.sound.startMusic();
+    this.sound.preloadVoices();
     this.phase = "intro";
     this.round = 1;
     this.roundWins = [0, 0];
@@ -2778,6 +2911,11 @@ export class SoftCandyArena {
     this.setGuestKeyboardLayout(false);
     this.updateCharacterSelectionUI();
     this.phase = "idle";
+    this.sound.stopMusic();
+    this.onlinePausePending = false;
+    this.onlinePauseActive = false;
+    this.ui.pauseRequest.classList.remove("is-visible");
+    this.ui.pauseCountdown.classList.remove("is-visible");
     this.pauseLocked = false;
     this.hitstop = 0;
     this.cinematic = 0;
@@ -2817,6 +2955,89 @@ export class SoftCandyArena {
     this.updateHUD();
   }
 
+  returnToHome() {
+    this.closeCharacterGuide();
+    this.goHome();
+    this.mode = "solo";
+    this.ui.startCard.classList.remove("online-mode");
+    for (const option of this.ui.modeButtons) {
+      const selected = option.dataset.mode === "solo";
+      option.classList.toggle("is-selected", selected);
+      option.setAttribute("aria-checked", selected ? "true" : "false");
+    }
+    this.ui.roomCodeInput.value = "";
+    this.updateCharacterSelectionUI();
+    this.updateStartButton();
+    this.ui.startCard.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  requestPauseToggle() {
+    if (!this.onlineRole) {
+      this.togglePause();
+      return;
+    }
+    if (this.onlinePauseActive) {
+      this.resumePausedGame();
+      return;
+    }
+    if (this.onlinePausePending || !["fight", "roundEnd", "intro"].includes(this.phase)) return;
+    this.onlinePausePending = true;
+    this.onlinePauseRequester = this.onlineRole;
+    this.online.pauseRequest();
+    this.ui.onlineMessage.textContent = "暂停请求已发送，等待对方同意。";
+    this.showAnnounce("PAUSE REQUEST", "等待对方同意");
+    this.sound.ui();
+  }
+
+  resumePausedGame() {
+    if (this.onlinePauseActive) {
+      this.endOnlinePause(true);
+      return;
+    }
+    this.togglePause(false);
+  }
+
+  acceptOnlinePauseRequest() {
+    this.ui.pauseRequest.classList.remove("is-visible");
+    this.online.pauseResponse(true);
+    this.startOnlinePause();
+  }
+
+  rejectOnlinePauseRequest() {
+    this.ui.pauseRequest.classList.remove("is-visible");
+    this.online.pauseResponse(false);
+    this.sound.ui();
+  }
+
+  startOnlinePause() {
+    if (!["fight", "roundEnd", "intro"].includes(this.phase)) return;
+    this.onlinePausePending = false;
+    this.onlinePauseActive = true;
+    this.onlinePauseRemaining = 30;
+    this.togglePause(true);
+    this.ui.pauseCopy.textContent = "双方已同意暂停，最多 30 秒后自动继续。";
+    this.ui.pauseCountdownValue.textContent = "30";
+    this.ui.pauseCountdown.classList.add("is-visible");
+    this.sound.pause();
+  }
+
+  endOnlinePause(notifyPeer = true) {
+    if (!this.onlinePauseActive) return;
+    this.onlinePauseActive = false;
+    this.onlinePauseRemaining = 0;
+    if (notifyPeer && this.onlineRole) this.online.pauseResume();
+    this.ui.pauseCountdown.classList.remove("is-visible");
+    this.ui.pauseCopy.textContent = "调整呼吸，回来继续赢。";
+    this.togglePause(false);
+  }
+
+  updateOnlinePause(dt) {
+    if (!this.onlinePauseActive || this.phase === "matchEnd" || this.phase === "idle") return;
+    this.onlinePauseRemaining = Math.max(0, this.onlinePauseRemaining - dt);
+    this.ui.pauseCountdownValue.textContent = String(Math.ceil(this.onlinePauseRemaining));
+    if (this.onlinePauseRemaining <= 0) this.endOnlinePause(true);
+  }
+
   togglePause(forcePause) {
     if (this.phase === "matchEnd" || this.phase === "idle") return;
     const shouldPause = forcePause ?? !this.pauseLocked;
@@ -2825,7 +3046,12 @@ export class SoftCandyArena {
     this.ui.pause.classList.toggle("is-visible", shouldPause);
     this.keys.clear();
     this.justPressed.clear();
-    if (shouldPause) this.sound.ui();
+    if (shouldPause) {
+      this.sound.pause();
+      this.sound.duckMusic();
+    } else {
+      this.sound.restoreMusicVolume();
+    }
   }
 
   readIntent(control) {
@@ -2884,6 +3110,7 @@ export class SoftCandyArena {
 
   onMoveStart(fighter, key, move) {
     const effects = this.arenaScene.effects;
+    this.sound.voice(fighter.id, move.kind);
     const primary = fighter.id === "yiyi" ? "#ffb3c5" : "#f1bd76";
     const secondary = fighter.id === "yiyi" ? "#fff0f3" : "#fff0c9";
     const strong = ["heavy", "dash", "spin", "slam", "bodySlam", "throw", "super"].includes(move.kind);
@@ -3212,6 +3439,7 @@ export class SoftCandyArena {
       defender.knockdown = 0;
       defender.setFlash(0.42);
       this.sound[damage >= 13 || move.kind === "super" ? "heavy" : "light"]();
+      this.sound.hurt(defender.id, damage);
       if (this.onlineRole === "p1") {
         this.online.fx({
           effect: "hit",
@@ -3418,6 +3646,7 @@ export class SoftCandyArena {
     const rawDt = Math.min(0.033, (now - this.lastFrame) / 1000);
     this.lastFrame = now;
     const dt = this.pauseLocked ? 0 : rawDt;
+    this.updateOnlinePause(rawDt);
     if (this.mode === "online-guest") this.captureGuestInput(rawDt);
     this.arenaScene.updateAmbient(rawDt, now / 1000);
     this.update(dt);
