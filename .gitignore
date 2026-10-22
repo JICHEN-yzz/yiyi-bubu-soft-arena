@@ -1,0 +1,10 @@
+node_modules/
+.gh-bin/
+.railway-bin/
+.serveo_key
+.serveo_key.pub
+*.zip
+qa/
+railway-login.html
+.env
+.env.*

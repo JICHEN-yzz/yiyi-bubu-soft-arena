@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#100b17" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>一二布布：软糖拳台</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./assets/icon.svg" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23dc536b'/%3E%3Ccircle cx='22' cy='25' r='5' fill='white'/%3E%3Ccircle cx='42' cy='25' r='5' fill='white'/%3E%3Cpath d='M20 40Q32 51 44 40' stroke='white' stroke-width='4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "./vendor/three/build/three.module.js",
+          "three/addons/": "./vendor/three/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <a class="wordmark" href="#" aria-label="一二布布软糖拳台">
+          <span class="wordmark-mark">软糖</span>
+          <span>拳台</span>
+        </a>
+        <div class="topbar-meta">
+          <span class="live-dot"></span>
+          <span>跨设备实时对战 · 三局两胜</span>
+        </div>
+        <button class="icon-button" id="sound-toggle" type="button" aria-label="开关声音" title="开关声音">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 9v6h4l5 4V5L9 9H5Zm11.4 3a4.6 4.6 0 0 0-2-3.8v7.6a4.6 4.6 0 0 0 2-3.8Z" />
+          </svg>
+        </button>
+      </header>
+
+      <main id="arena">
+        <canvas id="game-canvas" aria-label="一二布布格斗游戏画面"></canvas>
+        <div class="wall-grain" aria-hidden="true"></div>
+        <div class="comic-speed-lines" id="speed-lines" aria-hidden="true"></div>
+        <div class="screen-flash" id="screen-flash" aria-hidden="true"></div>
+        <div class="vfx-layer" id="vfx-layer" aria-hidden="true"></div>
+
+        <section class="hud" aria-label="对战状态">
+          <article class="fighter-card player-one" id="p1-card">
+            <div class="fighter-card-heading">
+              <div>
+                <span class="player-tag">P1</span>
+                <strong id="p1-name-label">一二</strong>
+                <span class="fighter-role">白色熊猫 · 速度连招</span>
+              </div>
+              <div class="round-pips" id="p1-rounds" aria-label="一二胜局"></div>
+            </div>
+            <div class="bar-label"><span>元气</span><b id="p1-hp-text">96 / 96</b></div>
+            <div class="energy-track hp-track"><i class="hp-lag" id="p1-hp-lag"></i><i class="hp-fill" id="p1-hp"></i></div>
+            <div class="bar-label heart-label"><span>心动槽</span><b id="p1-heart-text">0%</b></div>
+            <div class="energy-track heart-track"><i class="heart-fill" id="p1-heart"></i><span class="super-ready">READY!</span></div>
+          </article>
+
+          <div class="round-clock" aria-live="polite">
+            <span class="round-caption">ROUND <b id="round-number">1</b></span>
+            <strong id="round-time">60</strong>
+            <span class="round-state" id="round-state">准备</span>
+          </div>
+
+          <article class="fighter-card player-two" id="p2-card">
+            <div class="fighter-card-heading">
+              <div class="fighter-copy-right">
+                <div>
+                  <span class="player-tag">P2</span>
+                  <strong id="p2-name-label">布布</strong>
+                  <span class="fighter-role">奶茶棕小熊 · 重量投技</span>
+                </div>
+                <div class="round-pips" id="p2-rounds" aria-label="布布胜局"></div>
+              </div>
+            </div>
+            <div class="bar-label"><span>元气</span><b id="p2-hp-text">112 / 112</b></div>
+            <div class="energy-track hp-track reverse"><i class="hp-lag" id="p2-hp-lag"></i><i class="hp-fill" id="p2-hp"></i></div>
+            <div class="bar-label heart-label"><span>心动槽</span><b id="p2-heart-text">0%</b></div>
+            <div class="energy-track heart-track reverse"><i class="heart-fill" id="p2-heart"></i><span class="super-ready">READY!</span></div>
+          </article>
+        </section>
+
+        <div class="announcer" id="announcer" aria-live="assertive">
+          <span class="announcer-kicker">ROUND 1</span>
+          <strong>开打！</strong>
+        </div>
+
+        <div class="super-cutin" id="super-cutin" aria-live="polite">
+          <div class="cutin-lines"></div>
+          <span id="super-cutin-owner">一二</span>
+          <strong id="super-cutin-name">棉花糖风暴</strong>
+          <small>SUGAR RUSH!</small>
+        </div>
+
+        <div class="combo-display" id="combo-display">
+          <strong id="combo-number">3</strong><span>连击</span>
+        </div>
+
+        <div class="move-nameplate" id="move-nameplate">
+          <span>一二</span>
+          <strong>奶泡三连拳</strong>
+        </div>
+
+        <aside class="move-sheet move-sheet-left">
+          <div class="move-sheet-title"><span>01</span><b>一二</b><em>速度 / 连招</em></div>
+          <div class="move-row"><kbd>J</kbd><span>奶泡三连拳</span></div>
+          <div class="move-row"><kbd>K</kbd><span>团子飞拳</span></div>
+          <div class="move-row"><kbd>L</kbd><span>团子突进</span></div>
+          <div class="move-row"><kbd>O</kbd><span>领结回旋</span></div>
+          <div class="move-row"><kbd>U</kbd><span>软糖背摔</span></div>
+          <div class="move-row super-move"><kbd>I</kbd><span>棉花糖风暴</span></div>
+        </aside>
+
+        <aside class="move-sheet move-sheet-right">
+          <div class="move-sheet-title"><span>02</span><b>布布</b><em>重量 / 投技</em></div>
+          <div class="move-row"><kbd>1</kbd><span>软糖拍拍</span></div>
+          <div class="move-row"><kbd>2</kbd><span>奶茶肚撞</span></div>
+          <div class="move-row"><kbd>3</kbd><span>震地跺脚</span></div>
+          <div class="move-row"><kbd>4</kbd><span>滚圆压顶</span></div>
+          <div class="move-row"><kbd>5</kbd><span>熊抱摔</span></div>
+          <div class="move-row super-move"><kbd>6</kbd><span>超大号抱抱坠击</span></div>
+        </aside>
+
+        <div class="control-hint" id="control-hint">
+          <span><kbd>A</kbd><kbd>D</kbd> 移动</span>
+          <span><kbd>W</kbd> 跳跃</span>
+          <span><kbd>S</kbd> 防御</span>
+          <span class="p2-hint"><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> P2</span>
+          <span><kbd>ESC</kbd> 暂停</span>
+        </div>
+
+        <button class="pause-button" id="pause-button" type="button" aria-label="暂停游戏">
+          <span></span><span></span>
+        </button>
+
+        <div class="mobile-controls" id="mobile-controls" aria-label="手机触控操作">
+          <div class="touch-player-label"><span id="touch-character-name">一二</span><b>TOUCH MODE</b></div>
+          <div class="mobile-dpad">
+            <button class="touch-key touch-left" type="button" data-touch="left" aria-label="向左移动">◀</button>
+            <button class="touch-key touch-up" type="button" data-touch="jump" aria-label="跳跃">跳跃</button>
+            <button class="touch-key touch-right" type="button" data-touch="right" aria-label="向右移动">▶</button>
+            <button class="touch-key touch-down" type="button" data-touch="block" aria-label="防御">防御</button>
+          </div>
+          <div class="mobile-action-pad">
+            <button class="touch-key action-special" type="button" data-touch="special" data-move-name="团子突进" title="团子突进" aria-label="团子突进">突进</button>
+            <button class="touch-key action-spin" type="button" data-touch="special2" data-move-name="领结回旋" title="领结回旋" aria-label="领结回旋">回旋</button>
+            <button class="touch-key action-throw" type="button" data-touch="throw" data-move-name="软糖背摔" title="软糖背摔" aria-label="软糖背摔">抱摔</button>
+            <button class="touch-key action-light" type="button" data-touch="light" data-move-name="奶泡三连拳" title="奶泡三连拳" aria-label="奶泡三连拳">连拳</button>
+            <button class="touch-key action-heavy" type="button" data-touch="heavy" data-move-name="团子飞拳" title="团子飞拳" aria-label="团子飞拳">飞拳</button>
+            <button class="touch-key action-super" type="button" data-touch="super" data-move-name="棉花糖风暴" title="棉花糖风暴" aria-label="棉花糖风暴">风暴</button>
+          </div>
+          <button class="mobile-orientation-button" id="mobile-fullscreen" type="button">全屏横屏</button>
+        </div>
+
+        <section class="rotate-overlay" id="rotate-overlay" aria-live="polite">
+          <div class="rotate-phone" aria-hidden="true"><i></i></div>
+          <span class="eyebrow">TOUCH ARENA</span>
+          <h2>把手机横过来</h2>
+          <p>横屏会显示完整拳台和触控按键。iPhone 如果无法自动旋转，请在浏览器菜单里打开横屏模式。</p>
+          <button class="primary-button" id="rotate-fullscreen-button" type="button"><span>全屏并横屏</span><i>↻</i></button>
+          <button class="text-button" id="rotate-dismiss-button" type="button">先在竖屏中游玩</button>
+        </section>
+
+        <section class="modal-screen start-screen is-visible" id="start-screen">
+          <div class="start-card">
+            <div class="start-mascot-row" aria-hidden="true">
+              <span class="mini-mascot panda-mascot"><i></i><i></i></span>
+              <span class="versus-badge">VS</span>
+              <span class="mini-mascot bear-mascot"><i></i><i></i></span>
+            </div>
+            <span class="eyebrow">YIYI × BUBU · ONLINE ARENA</span>
+            <h1>一二布布<br /><span>软糖拳台</span></h1>
+            <p class="start-lead">甜是外表，赢才是重点。<br />跨设备开房，把她的元气打空。</p>
+
+            <div class="mode-picker" role="radiogroup" aria-label="对战模式">
+              <button class="mode-option is-selected" type="button" data-mode="solo" role="radio" aria-checked="true">
+                <span class="mode-icon">1P</span>
+                <span><b>挑战软糖 AI</b><small>单人对战 · 推荐</small></span>
+              </button>
+              <button class="mode-option" type="button" data-mode="duo" role="radio" aria-checked="false">
+                <span class="mode-icon">2P</span>
+                <span><b>本机双人</b><small>共用一个键盘</small></span>
+              </button>
+              <button class="mode-option" type="button" data-mode="online" role="radio" aria-checked="false">
+                <span class="mode-icon">ON</span>
+                <span><b>跨设备联机</b><small>房间码 · 实时</small></span>
+              </button>
+            </div>
+
+            <section class="character-picker" aria-labelledby="character-picker-title">
+              <div class="character-picker-heading">
+                <div>
+                  <span class="eyebrow">CHOOSE YOUR FIGHTER</span>
+                  <b id="character-picker-title">选择你的角色</b>
+                </div>
+                <button class="character-guide-button" id="character-guide-button" type="button">角色图鉴 <span>↗</span></button>
+              </div>
+              <div class="character-choice-grid" role="radiogroup" aria-label="选择出战角色">
+                <button class="character-option is-selected" type="button" data-character="yiyi" role="radio" aria-checked="true">
+                  <span class="fighter-badge badge-yiyi" aria-hidden="true"><i></i><i></i></span>
+                  <span class="character-option-copy">
+                    <small>SPEED · COMBO</small>
+                    <strong>一二</strong>
+                    <em>白色熊猫 · 奶泡小旋风</em>
+                  </span>
+                  <span class="character-choice-mark">已选</span>
+                </button>
+                <button class="character-option" type="button" data-character="bubu" role="radio" aria-checked="false">
+                  <span class="fighter-badge badge-bubu" aria-hidden="true"><i></i><i></i></span>
+                  <span class="character-option-copy">
+                    <small>POWER · GRAPPLE</small>
+                    <strong>布布</strong>
+                    <em>奶茶棕小熊 · 抱抱重力场</em>
+                  </span>
+                  <span class="character-choice-mark">选择</span>
+                </button>
+              </div>
+              <p class="character-picker-note" id="character-picker-note">你操控一二，对手将使用布布。点击“角色图鉴”可查看完整技能说明。</p>
+            </section>
+
+            <div class="online-panel" id="online-panel">
+              <label class="online-name-field">
+                <span>你的昵称</span>
+                <input id="online-name" maxlength="12" value="一二" autocomplete="nickname" />
+              </label>
+              <div class="online-row">
+                <button class="online-secondary" id="create-room-button" type="button">创建房间</button>
+                <div class="room-join">
+                  <input id="room-code-input" maxlength="6" placeholder="输入 6 位房间码" aria-label="房间码" />
+                  <button class="online-secondary" id="join-room-button" type="button">加入</button>
+                </div>
+              </div>
+              <p class="online-message" id="online-message">让另一半打开邀请链接即可加入。</p>
+              <div class="room-invite" id="room-invite">
+                <div><span>房间码</span><strong id="room-code-view">------</strong></div>
+                <div class="invite-link-line">
+                  <input id="invite-link" readonly aria-label="邀请链接" />
+                  <button id="copy-invite-button" type="button">复制</button>
+                </div>
+              </div>
+            </div>
+
+            <button class="primary-button" id="start-button" type="button" disabled>
+              <span id="start-button-label">正在加载圆润角色…</span>
+              <i aria-hidden="true">→</i>
+            </button>
+
+            <div class="start-rules">
+              <span><b>3</b> 回合</span>
+              <span><b>60</b> 秒</span>
+              <span><b>ON</b> 跨设备</span>
+            </div>
+          </div>
+          <div class="loading-note" id="loading-note">正在点亮拳台灯光…</div>
+        </section>
+
+        <section class="modal-screen pause-screen" id="pause-screen">
+          <div class="small-modal">
+            <span class="eyebrow">SUGAR BREAK</span>
+            <h2>暂停</h2>
+            <p>调整呼吸，回来继续赢。</p>
+            <button class="primary-button" id="resume-button" type="button"><span>继续对战</span><i>→</i></button>
+            <button class="text-button" id="quit-button" type="button">回到开场</button>
+          </div>
+        </section>
+
+        <section class="modal-screen result-screen" id="result-screen">
+          <div class="small-modal result-modal">
+            <span class="eyebrow">MATCH COMPLETE</span>
+            <div class="result-heart" id="result-heart">♥</div>
+            <h2 id="result-title">一二赢啦！</h2>
+            <p id="result-copy">今天的软糖，是最甜的那颗。</p>
+            <div class="score-line" id="score-line">2 : 0</div>
+            <button class="primary-button" id="rematch-button" type="button"><span>再来一局</span><i>↻</i></button>
+            <button class="text-button" id="result-home-button" type="button">更换对战模式</button>
+          </div>
+        </section>
+
+        <section class="modal-screen character-guide-screen" id="character-guide-screen" aria-hidden="true">
+          <article class="character-guide-card" role="dialog" aria-modal="true" aria-labelledby="character-guide-name">
+            <button class="character-guide-close" id="character-guide-close" type="button" aria-label="关闭角色图鉴">×</button>
+            <header class="character-guide-hero">
+              <span class="fighter-badge guide-badge" id="character-guide-badge" aria-hidden="true"><i></i><i></i></span>
+              <div>
+                <span class="eyebrow" id="character-guide-role">速度 · 连招</span>
+                <h2 id="character-guide-name">一二</h2>
+                <p id="character-guide-tagline">靠脚步和拳速把对手卷进连招。</p>
+              </div>
+              <div class="guide-title-chip" id="character-guide-title">奶泡小旋风</div>
+            </header>
+            <div class="character-guide-body">
+              <section class="guide-overview">
+                <p id="character-guide-bio"></p>
+                <div class="guide-stat-grid" id="character-guide-stats"></div>
+                <div class="guide-note" id="character-guide-note"></div>
+              </section>
+              <section class="guide-moves" aria-labelledby="guide-moves-title">
+                <div class="guide-section-heading">
+                  <div><span class="eyebrow">MOVE LIST</span><h3 id="guide-moves-title">技能详解</h3></div>
+                  <small>伤害为单次基础值，可受连击修正影响</small>
+                </div>
+                <div class="guide-skill-list" id="character-guide-skills"></div>
+              </section>
+            </div>
+            <footer class="character-guide-footer">
+              <span>数据与招式随角色实时切换</span>
+              <button class="primary-button" id="character-guide-select" type="button"><span>选择一二出战</span><i>→</i></button>
+            </footer>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
