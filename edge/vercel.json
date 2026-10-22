@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://yiyi-bubu-soft-arena.yiyi-bubu-arena.workers.dev/api/:path*"
+    }
+  ]
+}

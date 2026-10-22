@@ -24,7 +24,19 @@ Three.js 运行文件已经放在 `vendor/` 中，不需要联网下载依赖。
 
 `临时公网分享.bat` 只适合几分钟的应急试玩。它的地址依赖分享进程，进程关闭或隧道掉线后就会失效，不建议作为给另一半的常用入口。
 
-## 长期公共网址
+## 当前长期公共网址
+
+正式入口：
+
+```text
+https://yiyi-bubu-soft-arena.jichen-yzz.deno.net
+```
+
+该网址部署在 Deno Deploy，包含完整静态资源、角色选择、图鉴、WebSocket 实时对战和房间码。`deno.dev` 地址不会像临时隧道一样在几分钟后失效。
+
+云端源码位于 `edge/main.ts`，上传清单和运行配置位于 `edge/deno.json`。
+
+## 备用部署方式
 
 项目已经带好 `render.yaml`，可以部署成地址固定的 Node Web 服务：
 

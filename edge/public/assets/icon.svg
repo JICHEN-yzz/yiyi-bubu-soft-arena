@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="35%" r="80%">
+      <stop offset="0" stop-color="#6f244f"/>
+      <stop offset="1" stop-color="#100b17"/>
+    </radialGradient>
+    <linearGradient id="hot" x1="0" x2="1">
+      <stop stop-color="#ff4b7f"/>
+      <stop offset="1" stop-color="#ff8a52"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+  <circle cx="256" cy="258" r="184" fill="none" stroke="#ff5a8d" stroke-width="10" opacity=".35"/>
+  <path d="M46 351h420" stroke="#58e9ff" stroke-width="8" opacity=".55"/>
+  <g transform="translate(102 120)">
+    <circle cx="42" cy="44" r="34" fill="#2a1c22"/>
+    <circle cx="156" cy="44" r="34" fill="#2a1c22"/>
+    <rect x="2" y="30" width="194" height="178" rx="68" fill="#fff8f3" stroke="#24172b" stroke-width="8"/>
+    <ellipse cx="57" cy="121" rx="27" ry="18" fill="#ffb2c2"/>
+    <ellipse cx="142" cy="121" rx="27" ry="18" fill="#ffb2c2"/>
+    <circle cx="83" cy="99" r="8" fill="#24172b"/>
+    <circle cx="121" cy="99" r="8" fill="#24172b"/>
+    <path d="M94 121l8 6 8-6" fill="none" stroke="#24172b" stroke-width="5" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(246 142)">
+    <circle cx="38" cy="38" r="31" fill="#70493d"/>
+    <circle cx="150" cy="38" r="31" fill="#70493d"/>
+    <rect x="0" y="20" width="188" height="166" rx="66" fill="#c98e77" stroke="#24172b" stroke-width="8"/>
+    <circle cx="38" cy="38" r="14" fill="#a66f5d"/>
+    <circle cx="150" cy="38" r="14" fill="#a66f5d"/>
+    <ellipse cx="52" cy="108" rx="27" ry="18" fill="#ffd36e"/>
+    <ellipse cx="136" cy="108" rx="27" ry="18" fill="#ffd36e"/>
+    <circle cx="78" cy="87" r="8" fill="#24172b"/>
+    <circle cx="112" cy="87" r="8" fill="#24172b"/>
+    <path d="M88 108l7 6 7-6" fill="none" stroke="#24172b" stroke-width="5" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(256 390)">
+    <circle r="44" fill="url(#hot)"/>
+    <text x="0" y="12" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="34" fill="white">VS</text>
+  </g>
+</svg>

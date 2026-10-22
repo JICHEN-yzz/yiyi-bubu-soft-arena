@@ -1,0 +1,18 @@
+{
+  "tasks": {
+    "start": "deno run --allow-net --allow-read --allow-env main.ts"
+  },
+  "deploy": {
+    "org": "jichen-yzz",
+    "app": "yiyi-bubu-soft-arena",
+    "include": [
+      "main.ts",
+      "deno.json",
+      "public/**"
+    ]
+  }
+}
+
+
+
+
